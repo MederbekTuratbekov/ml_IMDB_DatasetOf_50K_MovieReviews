@@ -1,8 +1,9 @@
-import torch.cuda
+import torch
+import uvicorn
 import torch.nn as nn
 from fastapi import FastAPI
 from pydantic import BaseModel
-import uvicorn
+from torchtext.data import get_tokenizer
 
 
 class SentimentModel(nn.Module):
@@ -20,7 +21,7 @@ class SentimentModel(nn.Module):
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-vocab = torch.load("model_IMDB_DatasetOf_50K_MovieReviews.pth", map_location=device)
+vocab = torch.load("vocab_IMDB_DatasetOf_50K_MovieReviews.pth", map_location=device, weights_only=False)
 
 model = SentimentModel(len(vocab)).to(device)
 model.load_state_dict(torch.load("model_IMDB_DatasetOf_50K_MovieReviews.pth", map_location=device))
@@ -31,8 +32,10 @@ app = FastAPI()
 class TextIn(BaseModel):
     text: str
 
+tokenizer = get_tokenizer("basic_english")
+
 def preprocess(text: str):
-    tokens = text.lower().split()
+    tokens = tokenizer(text)
     ids = [vocab[token] for token in tokens]
     return torch.tensor([ids], dtype=torch.int64, device=device)
 
