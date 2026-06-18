@@ -23,19 +23,32 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 vocab = torch.load("vocab_IMDB_DatasetOf_50K_MovieReviews.pth", map_location=device, weights_only=False)
 
+if "<unk>" in vocab:
+    vocab.set_default_index(vocab["<unk>"])
+else:
+    vocab.set_default_index(0)
+
 model = SentimentModel(len(vocab)).to(device)
 model.load_state_dict(torch.load("model_IMDB_DatasetOf_50K_MovieReviews.pth", map_location=device))
 model.eval()
 
+# Настройка FastAPI
 app = FastAPI()
+
 
 class TextIn(BaseModel):
     text: str
 
+
 tokenizer = get_tokenizer("basic_english")
+
 
 def preprocess(text: str):
     tokens = tokenizer(text)
+
+    if not tokens:
+        return torch.tensor([[vocab["<unk>"]]], dtype=torch.int64, device=device)
+
     ids = [vocab[token] for token in tokens]
     return torch.tensor([ids], dtype=torch.int64, device=device)
 
@@ -45,7 +58,8 @@ def predict(item: TextIn):
     with torch.no_grad():
         pred = model(x)
         label = torch.argmax(pred, dim=1).item()
-    return {"label": "positive" if label == 1 else "negative"}
+    return {"label": "это позитивный отзыв" if label == 1 else "это negative отзыв"}
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host='127.0.0.1', port=8000)
